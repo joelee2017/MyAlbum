@@ -22,7 +22,7 @@ namespace MyAlbum
 
         }
 
-        private void button4_Click(object sender, EventArgs e)
+        private void PhotoLoad_Click(object sender, EventArgs e)//讀取功能
         {
             // test
             using (var cn = new SqlConnection(Settings.Default.DP))
@@ -36,17 +36,19 @@ namespace MyAlbum
 
                 adp.Fill(dt);
 
+                //加入全部的選項
                 var allRow = dt.NewRow();
                 allRow["PhotoType"] = "全部";
 
-                dt.Rows.InsertAt(allRow, 0);
+                dt.Rows.InsertAt(allRow, 0);//放在第 0個位置
 
                 lstPhotoType.DataSource = dt;
             }
         }
 
-        private void lstPhotoType_SelectedIndexChanged(object sender, EventArgs e)
+        private void lstPhotoType_SelectedIndexChanged(object sender, EventArgs e)//listbox事件
         {
+            //取得DataSource強轉string
             var photoType = (string)lstPhotoType.SelectedValue;
 
             var sqlText = string.Empty;
@@ -61,7 +63,7 @@ namespace MyAlbum
                         PhotoTable;";
             }
             else
-            {
+            {   
                 sqlText = @"
                     SELECT
                         Id,
@@ -70,52 +72,61 @@ namespace MyAlbum
                         PhotoTable
                     WHERE
                         PhotoType = @type;";
-            }
+            }//關聯至下方SqlDataAdapter
 
             using (var cn = new SqlConnection(Settings.Default.DP))
             using (var adp = new SqlDataAdapter(sqlText, cn))
             {
+                //SelectCommand.Parameters.Add(string, DB欄位型別.xxxxx).取得值 =從DB PhotoType;
                 adp.SelectCommand.Parameters.Add("type", SqlDbType.NVarChar).Value = photoType;
-                var dt = new DataTable();
+
+                var dt = new DataTable();//宣告DataTable至下方adp連接中
 
                 adp.Fill(dt);
 
-                var imgList = new ImageList();
-                imgList.ImageSize = new Size(100, 100);
-                lstPhoto.LargeImageList = imgList;
-
+                var imgList = new ImageList();//宣告ImageList
+                imgList.ImageSize = new Size(100, 100);//宣告Size
+                lstPhoto.LargeImageList = imgList;//將ImageList指派主顯示區大圖
+                //建置圖片控制項大圖設定，此時還未將圖從DB匯入
                 lstPhoto.Items.Clear();
-                foreach (var row in dt.AsEnumerable())
+                //LINQ 新學習
+                var imgs = from row in dt.AsEnumerable() 
+                           //宣告imgs =from row in dt.AsEnumerable() = DB = PhotoTable
+                           select new 
+                           {
+                               Id = row.Field<int>("Id").ToString(),
+                               Pic = Image.FromStream(new MemoryStream(row.Field<byte[]>("Photo")))
+                           };//宣告強型別 ID photo放入
+
+                foreach (var item in imgs)//還需使用foreach將圖放入item之中
                 {
-                    var photoBytes = row.Field<byte[]>("Photo");
-                    var img = Image.FromStream(new MemoryStream(photoBytes));
-
-                    var id = row.Field<int>("Id").ToString();
-                    imgList.Images.Add(id, img);
-                    var item = lstPhoto.Items.Add(id);
-                    item.ImageKey = id;
+                    imgList.Images.Add(item.Id, item.Pic);//將DB資料匯入
+                    var listItem = lstPhoto.Items.Add(item.Id);
+                    //將item.Id 加到宣告的listItem之中
+                    listItem.ImageKey = item.Id;
+                    //在讓item.Id成為   listItem的索引值
                 }
-
-
             }
         }
 
-        private void button3_Click(object sender, EventArgs e)
+        private void OpenFile_Click(object sender, EventArgs e)//打開檔案選取
         {
-            if (openFileDialog1.ShowDialog() == DialogResult.OK)
+            if (openFileDialog1.ShowDialog() == DialogResult.OK)//選取動作ok後
             {
                 picUploadPicture.Image = Image.FromStream(openFileDialog1.OpenFile());
                 txtFileName.Text = openFileDialog1.SafeFileName;
             }
         }
 
-        private void button1_Click(object sender, EventArgs e)
+        private void InsertDB_Click(object sender, EventArgs e)
         {
             using (var cn = new SqlConnection(Settings.Default.DP))
             using (var cmd = new SqlCommand(@"
                 INSERT INTO PhotoTable(PhotoDesc, PhotoDate, PhotoType, Photo)
                 VALUES(@fileName, @date, @type, @photo);", cn))
             {
+                cmd.CommandType = CommandType.Text;
+
                 cmd.Parameters.Add("fileName", SqlDbType.NVarChar).Value = txtFileName.Text;
                 cmd.Parameters.Add("date", SqlDbType.DateTime).Value = dtPhotoDate.Value;
                 cmd.Parameters.Add("type", SqlDbType.NVarChar).Value = txtPhotoType.Text;
