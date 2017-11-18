@@ -24,6 +24,7 @@ namespace MyAlbum
 
         private void button4_Click(object sender, EventArgs e)
         {
+            // test
             using (var cn = new SqlConnection(Settings.Default.DP))
             using (var adp = new SqlDataAdapter(@"
                 SELECT DISTINCT
